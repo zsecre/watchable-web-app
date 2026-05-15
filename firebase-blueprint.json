@@ -1,0 +1,132 @@
+{
+  "entities": {
+    "Comment": {
+      "title": "Comment",
+      "description": "A user-submitted comment for a specific media episode or movie.",
+      "type": "object",
+      "properties": {
+        "mediaId": {
+          "type": "string",
+          "description": "The unique ID of the movie or TV show (preferably IMDb ID if available, otherwise internal ID)."
+        },
+        "mediaType": {
+          "type": "string",
+          "description": "Whether it's a movie or TV show.",
+          "enum": ["movie", "tv"]
+        },
+        "seasonNumber": {
+          "type": "number",
+          "description": "The season number if it's a TV show."
+        },
+        "episodeNumber": {
+          "type": "number",
+          "description": "The episode number if it's a TV show."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user."
+        },
+        "userName": {
+          "type": "string",
+          "description": "The name of the user who commented."
+        },
+        "text": {
+          "type": "string",
+          "description": "The content of the comment (max 350 characters)."
+        },
+        "repliesCount": {
+          "type": "number",
+          "description": "Number of replies to this comment."
+        },
+        "timestamp": {
+          "type": "object",
+          "description": "When the comment was posted."
+        }
+      },
+      "required": ["mediaId", "userName", "text", "timestamp", "userId"]
+    },
+    "Reply": {
+      "title": "Reply",
+      "description": "A reply to a specific comment.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "object"
+        }
+      },
+      "required": ["userId", "userName", "text", "timestamp"]
+    },
+    "Reaction": {
+      "title": "Reaction",
+      "description": "A like or dislike on a comment.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["like", "dislike"]
+        },
+        "userId": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "object"
+        }
+      },
+      "required": ["type", "userId", "timestamp"]
+    },
+    "MediaStats": {
+      "title": "MediaStats",
+      "description": "Aggregate statistics for a media item (movie/tv/anime).",
+      "type": "object",
+      "properties": {
+        "views": { "type": "number" },
+        "likes": { "type": "number" },
+        "dislikes": { "type": "number" },
+        "ratingCount": { "type": "number" },
+        "ratingSum": { "type": "number" },
+        "averageRating": { "type": "number" }
+      }
+    },
+    "UserInteraction": {
+      "title": "UserInteraction",
+      "description": "A specific user's interaction (rating, like, dislike) with a media item.",
+      "type": "object",
+      "properties": {
+        "rating": { "type": "number" },
+        "reaction": { "type": "string", "enum": ["like", "dislike", "none"] },
+        "lastViewed": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/comments/{mediaId}/entries/{commentId}": {
+      "schema": "Comment",
+      "description": "Subcollection of comments for specific media items."
+    },
+    "/comments/{mediaId}/entries/{commentId}/replies/{replyId}": {
+      "schema": "Reply",
+      "description": "Replies to a specific comment."
+    },
+    "/comments/{mediaId}/entries/{commentId}/reactions/{userId}": {
+      "schema": "Reaction",
+      "description": "Likes and dislikes on a comment, indexed by userId."
+    },
+    "/stats/{mediaId}": {
+      "schema": "MediaStats",
+      "description": "Global aggregate stats for a media item."
+    },
+    "/users/{userId}/interactions/{mediaId}": {
+      "schema": "UserInteraction",
+      "description": "Individual user interactions with a media item."
+    }
+  }
+}

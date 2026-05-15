@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidReaction(data) {
+      return data.keys().hasAll(['type', 'userId', 'timestamp']) &&
+             data.keys().size() == 3 &&
+             data.type in ['like', 'dislike'] &&
+             data.userId is string &&
+             data.timestamp == request.time;
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['mediaId', 'userName', 'text', 'timestamp']) &&
+             data.keys().size() <= 11 &&
+             data.mediaId is string && data.mediaId.size() < 100 &&
+             data.userName is string && data.userName.size() <= 32 &&
+             data.text is string && data.text.size() <= 500 &&
+             data.timestamp == request.time &&
+             (data.get('userId', '') is string) &&
+             (data.get('repliesCount', 0) is int) &&
+             (data.get('mediaType', 'movie') in ['movie', 'tv']) &&
+             (data.get('seasonNumber', 1) == null || data.get('seasonNumber', 1) is int) &&
+             (data.get('episodeNumber', 1) == null || data.get('episodeNumber', 1) is int);
+    }
+
+    function isValidReply(data) {
+      return data.keys().hasAll(['userId', 'userName', 'text', 'timestamp']) &&
+             data.keys().size() == 4 &&
+             data.userId is string &&
+             data.userName is string && data.userName.size() <= 32 &&
+             data.text is string && data.text.size() <= 500 &&
+             data.timestamp == request.time;
+    }
+
+    match /comments/{mediaId}/entries/{commentId} {
+      allow read: if true;
+      allow create: if isValidComment(incoming()) && isValidId(commentId) && (
+        (isSignedIn() && incoming().userId == request.auth.uid) ||
+        (!isSignedIn() && incoming().userId != "")
+      );
+      
+      allow update: if (
+        (
+          (isSignedIn() && existing().userId == request.auth.uid) ||
+          (!isSignedIn() && existing().userId == incoming().userId)
+        ) && 
+        incoming().userId == existing().userId &&
+        isValidComment(incoming()) && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['text']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['userName', 'userId'])
+        )
+      ) || (
+        incoming().diff(existing()).affectedKeys().hasOnly(['repliesCount']) &&
+        incoming().repliesCount is int
+      );
+
+      allow delete: if (
+        (isSignedIn() && existing().userId == request.auth.uid) ||
+        (!isSignedIn() && existing().userId != "")
+      );
+
+      match /replies/{replyId} {
+        allow read: if true;
+        allow create: if isValidReply(incoming()) && isValidId(replyId) && (
+          (isSignedIn() && incoming().userId == request.auth.uid) ||
+          (!isSignedIn() && incoming().userId != "")
+        );
+        allow update, delete: if (
+          (isSignedIn() && existing().userId == request.auth.uid) ||
+          (!isSignedIn() && existing().userId != "")
+        );
+      }
+
+      match /reactions/{userId} {
+        allow read: if true;
+        allow create, update: if (
+          (isSignedIn() && userId == request.auth.uid) ||
+          (!isSignedIn() && userId != "")
+        ) && isValidReaction(incoming()) && incoming().userId == userId;
+        allow delete: if (
+          (isSignedIn() && userId == request.auth.uid) ||
+          (!isSignedIn() && userId != "")
+        );
+      }
+    }
+
+    match /stats/{mediaId} {
+      allow read: if true;
+      allow write: if true; // In a production app, we would validate increments
+    }
+
+    match /users/{userId}/interactions/{mediaId} {
+      allow read: if (isSignedIn() && userId == request.auth.uid) || (!isSignedIn() && userId != "");
+      allow write: if (isSignedIn() && userId == request.auth.uid) || (!isSignedIn() && userId != "");
+    }
+  }
+}
