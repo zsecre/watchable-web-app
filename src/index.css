@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Helvetica Neue", "Inter", Arial, sans-serif;
+  
+  --color-brand-cyan: #00ffff;
+  --color-bg-deep: var(--bg-deep);
+  --color-bg-surface: var(--bg-surface);
+  --color-text-main: var(--text-main);
+  --color-text-muted: var(--text-muted);
+  --color-border-subtle: var(--border-subtle);
+}
+
+@layer base {
+  :root {
+    --bg-deep: #050a0a;
+    --bg-surface: #081111;
+    --text-main: #ffffff;
+    --text-muted: #71717a;
+    --border-subtle: rgba(255, 255, 255, 0.05);
+  }
+  
+  :root.light {
+    --bg-deep: #f8fafc;
+    --bg-surface: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border-subtle: rgba(0, 0, 0, 0.05);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .glow-cyan {
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.15);
+  }
+}
+
+body {
+  @apply bg-bg-deep text-text-main antialiased overflow-x-hidden transition-colors duration-300;
+}
+
+.light body {
+  @apply bg-bg-deep;
+}
+
+.swiper-pagination-bullet {
+  background-color: #1a2a2a !important;
+  opacity: 0.5 !important;
+}
+
+.swiper-pagination-bullet-active {
+  background-color: #00ffff !important;
+  opacity: 1 !important;
+  width: 1.5rem !important;
+  border-radius: 4px !important;
+  transition: all 0.3s ease !important;
+}
