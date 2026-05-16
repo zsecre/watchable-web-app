@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Watchable - Vercel Deployment Guide
 
-# Run and deploy your AI Studio app
+To deploy this app on Vercel and make sure the Movie/TV/Anime data shows up, you need to follow these steps:
 
-This contains everything you need to run your app locally.
+## 1. Set up Environment Variables
+The app uses a server-side proxy to securely communicate with the TMDB API.
+1. Go to your **Vercel Dashboard**.
+2. Select your project -> **Settings** -> **Environment Variables**.
+3. Add a new variable:
+   - **Key**: `TMDB_TOKEN`
+   - **Value**: `eyJhbGciOiJIUzI1NiJ9...` (Your full TMDB Read Access Token)
+4. Click **Save**.
+5. **Redeploy** your app for the changes to take effect.
 
-View your app in AI Studio: https://ai.studio/apps/1993666f-200d-40e2-9dae-61462541238f
+*Note: The app now automatically handles tokens that might have been pasted with the "Bearer " prefix or extra spaces.*
 
-## Run Locally
+## 2. Architecture
+- **Frontend**: Built with React + Vite. Vercel serves the `/dist` folder.
+- **Backend (Proxy)**: Handled by the `api/proxy.ts` serverless function. 
+- **Routing**: The `vercel.json` file ensures that API calls go to the function and all other routes go to your React app (allowing internal page refreshes to work).
 
-**Prerequisites:**  Node.js
+## 3. Deployment Configuration
+Vercel should automatically detect the framework as **Vite**.
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+If you encounter a blank page or no results, check the **Function Logs** in the Vercel Dashboard to see if the proxy is reporting any errors.
