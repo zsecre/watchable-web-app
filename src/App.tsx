@@ -1262,7 +1262,6 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
             frameBorder="0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowFullScreen
-            
           />
           {!showControls && (
             <div 
