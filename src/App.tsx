@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Search, Home, Film, Tv, Library, User, Play, X, ArrowLeft, Check, ChevronRight, Bookmark, BookmarkCheck, History, Sun, Moon, Edit2, LogOut, Send, Pencil, Trash2, ThumbsUp, ThumbsDown, MessageSquare, Star, ExternalLink } from 'lucide-react';
+import { Search, Home, Film, Tv, Library, User, Play, X, ArrowLeft, Check, ChevronRight, Bookmark, BookmarkCheck, History, Sun, Moon, Edit2, LogOut, Send, Pencil, Trash2, ThumbsUp, ThumbsDown, MessageSquare, Star, ExternalLink, Maximize } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
@@ -75,33 +75,44 @@ interface MediaItem {
   source?: 'tmdb' | 'jikan' | 'kitsu';
 }
 
-const TMDB_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIzNmY0N2U0NzAyZjBmZmJiMGM5Nzg4ZDA2OTk1ZWNkZSIsIm5iZiI6MTc3NjE0NDc3My4yNjgsInN1YiI6IjY5ZGRkMTg1ZTUzMmY2OTFkZWQ5NDEwOSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.dy8WanI7kFpTfCorNjBgEiHfx3nJVvBrpz9EZ6veHqo";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const JIKAN_BASE_URL = "https://api.jikan.moe/v4";
 
 // Robust fetch helper
 const apiFetch = async (url: string, options?: RequestInit) => {
   try {
-    const res = await fetch(url, options);
+    const isExternal = url.startsWith('http');
+    // Use relative path to avoid origin mismatch issues in iframe/proxy environments
+    const fetchUrl = isExternal ? `/api/proxy?url=${encodeURIComponent(url)}` : url;
+    
+    const res = await fetch(fetchUrl, options);
+    
     if (!res.ok) {
       if (res.status === 429) {
         console.warn(`Rate limit hit for ${url}. Handled gracefully.`);
         return null;
       }
+      // Log the proxy error message if available
       const text = await res.text();
-      throw new Error(`API Error ${res.status}: ${text.slice(0, 100)}`);
+      console.error(`API Error for ${url}: ${res.status} ${res.statusText}. Details: ${text.slice(0, 100)}`);
+      return null;
     }
+
     const contentType = res.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
       return await res.json();
     }
+    // Handle cases where downstream API might return plain text or other formats
     return null;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("Failed to fetch")) {
-      console.error(`Network error or CORS issue when fetching ${url}`);
-    } else {
-      console.error(`Fetch error for ${url}:`, error);
+  } catch (error: any) {
+    // Specifically catch network-level errors
+    console.error(`Fetch failure for ${url}. Error: ${error.message || error}`);
+    
+    // Check if it's a CORS/Network issue specifically
+    if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
+      console.error("This appears to be a Network or CORS issue. Ensure the proxy server is running and accessible.");
     }
+    
     return null;
   }
 };
@@ -1046,8 +1057,7 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
         // Fallback to TMDB if IMDB episodes fail
         if (item.type !== 'Anime') {
-          const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-          const data = await apiFetch(`${TMDB_BASE_URL}/tv/${item.id}/season/${seasonNum}`, { headers });
+          const data = await apiFetch(`${TMDB_BASE_URL}/tv/${item.id}/season/${seasonNum}`);
           if (data && data.episodes) {
             setEpisodes(data.episodes.map((ep: any) => ({
               ...ep,
@@ -1111,8 +1121,7 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
         // Fetch similar shows from TMDB
         const type = item.type === 'Movie' ? 'movie' : 'tv';
-        const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-        const simData = await apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/similar`, { headers });
+        const simData = await apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/similar`);
         setDetails((prev: any) => ({
           ...prev,
           similar: simData?.results?.slice(0, 12).map((s: any) => ({
@@ -1180,10 +1189,9 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
     const fetchTmdbFallback = async () => {
       try {
         const type = item.type === 'Movie' ? 'movie' : 'tv';
-        const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
         const [detailsData, simData] = await Promise.all([
-          apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}`, { headers }),
-          apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/similar`, { headers })
+          apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}`),
+          apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/similar`)
         ]);
         
         setDetails({
@@ -1210,8 +1218,7 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
     const fetchTMDBEpisodes = async (seasonNum: number) => {
       try {
-        const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-        const data = await apiFetch(`${TMDB_BASE_URL}/tv/${item.id}/season/${seasonNum}`, { headers });
+        const data = await apiFetch(`${TMDB_BASE_URL}/tv/${item.id}/season/${seasonNum}`);
         if (data && data.episodes) {
           setEpisodes(data.episodes.map((ep: any) => ({
             ...ep,
@@ -1247,7 +1254,7 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="absolute top-0 left-0 right-0 h-20 flex items-center px-6 z-20 bg-gradient-to-b from-black/90 to-transparent pointer-events-none"
+              className="absolute top-0 left-0 right-0 h-20 flex items-center justify-between px-6 z-20 bg-gradient-to-b from-black/90 to-transparent pointer-events-none"
             >
               <button 
                 onClick={(e) => {
@@ -1257,6 +1264,28 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
                 className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all backdrop-blur-md border border-white/5 pointer-events-auto shadow-xl"
               >
                 <ArrowLeft size={24} />
+              </button>
+
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Try Sketchware/Android Bridge first
+                  if ((window as any).AndroidBridge?.toggleFullscreen) {
+                    (window as any).AndroidBridge.toggleFullscreen();
+                  } else if (document.documentElement.requestFullscreen) {
+                    // Fallback to Web Fullscreen API
+                    if (!document.fullscreenElement) {
+                      document.documentElement.requestFullscreen();
+                    } else {
+                      if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                      }
+                    }
+                  }
+                }} 
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all backdrop-blur-md border border-white/5 pointer-events-auto shadow-xl"
+              >
+                <Maximize size={24} />
               </button>
             </motion.div>
           )}
@@ -1780,20 +1809,18 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
   const fetchHomeContent = async () => {
     try {
-      const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-
       const [moviesData, tvData, popularData, animeData] = await Promise.all([
-        apiFetch(`${TMDB_BASE_URL}/trending/movie/day?page=1`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/trending/tv/day?page=1`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/movie/popular?page=1`, { headers }),
+        apiFetch(`${TMDB_BASE_URL}/trending/movie/day?page=1`),
+        apiFetch(`${TMDB_BASE_URL}/trending/tv/day?page=1`),
+        apiFetch(`${TMDB_BASE_URL}/movie/popular?page=1`),
         apiFetch(`${JIKAN_BASE_URL}/seasons/now?limit=25&sfw=true`)
       ]);
 
       // Fetch second page for TMDB items to have more content for "View All"
       const [moviesData2, tvData2, popularData2] = await Promise.all([
-        apiFetch(`${TMDB_BASE_URL}/trending/movie/day?page=2`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/trending/tv/day?page=2`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/movie/popular?page=2`, { headers }),
+        apiFetch(`${TMDB_BASE_URL}/trending/movie/day?page=2`),
+        apiFetch(`${TMDB_BASE_URL}/trending/tv/day?page=2`),
+        apiFetch(`${TMDB_BASE_URL}/movie/popular?page=2`),
       ]);
 
       const formatTMDB = (item: any, type: 'Movie' | 'TV Show'): MediaItem => ({
@@ -1847,18 +1874,16 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
   const fetchMovieContent = async () => {
     try {
-      const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-
       const [latestData, popData, topData] = await Promise.all([
-        apiFetch(`${TMDB_BASE_URL}/movie/now_playing?page=1`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/movie/popular?page=1`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/movie/top_rated?page=1`, { headers }),
+        apiFetch(`${TMDB_BASE_URL}/movie/now_playing?page=1`),
+        apiFetch(`${TMDB_BASE_URL}/movie/popular?page=1`),
+        apiFetch(`${TMDB_BASE_URL}/movie/top_rated?page=1`),
       ]);
 
       const [latestData2, popData2, topData2] = await Promise.all([
-        apiFetch(`${TMDB_BASE_URL}/movie/now_playing?page=2`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/movie/popular?page=2`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/movie/top_rated?page=2`, { headers }),
+        apiFetch(`${TMDB_BASE_URL}/movie/now_playing?page=2`),
+        apiFetch(`${TMDB_BASE_URL}/movie/popular?page=2`),
+        apiFetch(`${TMDB_BASE_URL}/movie/top_rated?page=2`),
       ]);
 
       // Anime Movies
@@ -1904,8 +1929,8 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
       for (const [name, id] of Object.entries(genreMapping)) {
         try {
           const [data1, data2] = await Promise.all([
-            apiFetch(`${TMDB_BASE_URL}/discover/movie?with_genres=${id}&page=1`, { headers }),
-            apiFetch(`${TMDB_BASE_URL}/discover/movie?with_genres=${id}&page=2`, { headers }),
+            apiFetch(`${TMDB_BASE_URL}/discover/movie?with_genres=${id}&page=1`),
+            apiFetch(`${TMDB_BASE_URL}/discover/movie?with_genres=${id}&page=2`),
           ]);
           const results = [...(data1?.results || []), ...(data2?.results || [])];
           genreData[name] = results.map(formatMovie);
@@ -1920,16 +1945,14 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
   const fetchTvContent = async () => {
     try {
-      const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-
       const [popData, topData] = await Promise.all([
-        apiFetch(`${TMDB_BASE_URL}/tv/popular?page=1`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/tv/top_rated?page=1`, { headers }),
+        apiFetch(`${TMDB_BASE_URL}/tv/popular?page=1`),
+        apiFetch(`${TMDB_BASE_URL}/tv/top_rated?page=1`),
       ]);
 
       const [popData2, topData2] = await Promise.all([
-        apiFetch(`${TMDB_BASE_URL}/tv/popular?page=2`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/tv/top_rated?page=2`, { headers }),
+        apiFetch(`${TMDB_BASE_URL}/tv/popular?page=2`),
+        apiFetch(`${TMDB_BASE_URL}/tv/top_rated?page=2`),
       ]);
 
       const formatTv = (item: any): MediaItem => ({
@@ -1975,8 +1998,8 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
        for (const [name, id] of Object.entries(genreMapping)) {
          try {
            const [data1, data2] = await Promise.all([
-             apiFetch(`${TMDB_BASE_URL}/discover/tv?with_genres=${id}&page=1`, { headers }),
-             apiFetch(`${TMDB_BASE_URL}/discover/tv?with_genres=${id}&page=2`, { headers }),
+             apiFetch(`${TMDB_BASE_URL}/discover/tv?with_genres=${id}&page=1`),
+             apiFetch(`${TMDB_BASE_URL}/discover/tv?with_genres=${id}&page=2`),
            ]);
            const results = [...(data1?.results || []), ...(data2?.results || [])];
            genreData[name] = results.map(formatTv);
@@ -1998,10 +2021,8 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
     setIsSearching(true);
     try {
-      const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-      
       // TMDB Multi Search (Movies & TV)
-      const tmdbPromise = apiFetch(`${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}`, { headers });
+      const tmdbPromise = apiFetch(`${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}`);
 
       // Jikan Anime Search
       const jikanPromise = apiFetch(`${JIKAN_BASE_URL}/anime?q=${encodeURIComponent(query)}&limit=20`);
@@ -2046,7 +2067,6 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
   const fetchGenreData = async (genre: string, type: 'All' | 'Movie' | 'TV Show' | 'Anime', page: number = 1) => {
     try {
-      const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
       let results: MediaItem[] = [];
 
       const formatTMDB = (item: any, t: 'Movie' | 'TV Show'): MediaItem => ({
@@ -2073,14 +2093,14 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
       if (type === 'All' || type === 'Movie') {
         if (tmdbMovieGenre) {
-          const data = await apiFetch(`${TMDB_BASE_URL}/discover/movie?with_genres=${tmdbMovieGenre}&page=${page}`, { headers });
+          const data = await apiFetch(`${TMDB_BASE_URL}/discover/movie?with_genres=${tmdbMovieGenre}&page=${page}`);
           if (data?.results) results = [...results, ...data.results.map((i: any) => formatTMDB(i, 'Movie'))];
         }
       }
 
       if (type === 'All' || type === 'TV Show') {
         if (tmdbTvGenre) {
-          const data = await apiFetch(`${TMDB_BASE_URL}/discover/tv?with_genres=${tmdbTvGenre}&page=${page}`, { headers });
+          const data = await apiFetch(`${TMDB_BASE_URL}/discover/tv?with_genres=${tmdbTvGenre}&page=${page}`);
           if (data?.results) results = [...results, ...data.results.map((i: any) => formatTMDB(i, 'TV Show'))];
         }
       }
@@ -3010,8 +3030,7 @@ function DetailsOverlay({
 
       // Fallback to TMDB if IMDB episodes fail
       if (item.type !== 'Anime') {
-        const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-        const data = await apiFetch(`${TMDB_BASE_URL}/tv/${item.id}/season/${seasonNum}`, { headers });
+        const data = await apiFetch(`${TMDB_BASE_URL}/tv/${item.id}/season/${seasonNum}`);
         if (data && data.episodes) {
           setEpisodes(data.episodes.map((ep: any) => ({
             ...ep,
@@ -3088,8 +3107,7 @@ function DetailsOverlay({
       // Still need similar shows which IMDB API doesn't seem to provide easily in one go
       if (item) {
         const type = item.type === 'Movie' ? 'movie' : 'tv';
-        const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
-        const simData = await apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/similar`, { headers });
+        const simData = await apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/similar`);
         setDetails((prev: any) => ({
           ...prev,
           similar: simData?.results?.slice(0, 10).map((s: any) => ({
@@ -3165,11 +3183,10 @@ function DetailsOverlay({
     if (!item) return;
     try {
       const type = item.type === 'Movie' ? 'movie' : 'tv';
-      const headers = { 'Authorization': `Bearer ${TMDB_TOKEN}` };
       const [details, cast, similar] = await Promise.all([
-        apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/credits`, { headers }),
-        apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/similar`, { headers })
+        apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}`),
+        apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/credits`),
+        apiFetch(`${TMDB_BASE_URL}/${type}/${item.id}/similar`)
       ]);
       
       setDetails({
