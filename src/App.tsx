@@ -675,60 +675,23 @@ const CommentItem: React.FC<CommentItemProps> = ({
   );
 };
 
-/**
- * Native Ad Component (Mobile Ready)
- */
-const NativeAd = () => {
-  return (
-    <div className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 transition-colors relative overflow-hidden group">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-brand-cyan/5 blur-3xl -mr-16 -mt-16 pointer-events-none" />
-      
-      <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-yellow-500/10 border border-yellow-500/20 rounded text-[8px] font-black text-yellow-500 tracking-tighter uppercase z-10 transition-transform group-hover:scale-110">
-        Sponsored
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start relative z-0">
-        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-bg-surface rounded-xl overflow-hidden flex-shrink-0 border border-border-subtle flex items-center justify-center p-2">
-          <Film size={32} className="text-brand-cyan/40" />
-        </div>
-
-        <div className="flex-1 space-y-2 text-center sm:text-left">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-             <h4 className="text-sm font-bold text-text-main group-hover:text-brand-cyan transition-colors">Premium Streaming Optimized</h4>
-             <span className="hidden sm:inline text-text-muted opacity-30">•</span>
-             <span className="text-[10px] text-text-muted font-medium uppercase tracking-wider">Mobile Partner</span>
-          </div>
-          <p className="text-xs text-text-muted line-clamp-2 leading-relaxed max-w-lg">
-            Experience ultra-low latency and 4K playback. Our native mobile engine ensures the best performance on your device.
-          </p>
-          <div className="flex items-center justify-center sm:justify-start gap-1">
-            <div className="flex gap-0.5">
-              {[1,2,3,4,5].map(i => <Star key={i} size={10} className="text-yellow-500 fill-current" />)}
-            </div>
-            <span className="text-[9px] text-text-muted ml-1">Native App Verified</span>
-          </div>
-        </div>
-
-        <button className="px-6 py-2.5 bg-brand-cyan hover:bg-brand-cyan-light text-black text-[11px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-lg shadow-brand-cyan/10 sm:self-center">
-          Open App
-        </button>
-      </div>
-    </div>
-  );
-};
 
 const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: MediaItem; season?: number; episode?: number }; onClose: () => void; userName: string | null }) => {
     const { url, item } = info;
     const [showControls, setShowControls] = useState(true);
     const [showInterstitial, setShowInterstitial] = useState(true);
-    const [adTimeLeft, setAdTimeLeft] = useState(10);
-    const INTERSTITIAL_AD_UNIT = "9802411976";
+    const [adTimeLeft, setAdTimeLeft] = useState(8);
 
     // Native Bridge Setup
     useEffect(() => {
-      // Notify mobile wrapper that player is ready (if applicable)
-      if ((window as any).AndroidBridge) {
-        (window as any).AndroidBridge.onPlayerMounted?.();
+      // Expose function for Java to call when Ad is closed
+      (window as any).onAdClosed = () => {
+        setShowInterstitial(false);
+      };
+      
+      // Tell Java App to show the Interstitial Ad
+      if ((window as any).AndroidBridge?.showInterstitial) {
+        (window as any).AndroidBridge.showInterstitial();
       }
     }, []);
 
@@ -759,7 +722,7 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
     // Identity handling
     const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
-    // Ad Countdown Logic
+    // Ad Countdown Logic (Fallback for web testing)
     useEffect(() => {
       if (showInterstitial && adTimeLeft > 0) {
         const timer = setInterval(() => {
@@ -1305,23 +1268,14 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
         <div className="w-full bg-black aspect-video relative group shrink-0">
           {showInterstitial ? (
             <div className="absolute inset-0 z-50 bg-bg-deep flex flex-col items-center justify-center p-6 text-center space-y-6">
-              <div className="absolute top-4 left-4 flex flex-col items-start gap-1">
-                <div className="px-2 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded text-[10px] font-black text-yellow-500 tracking-widest uppercase">
-                  Sponsored Update
-                </div>
-                <div className="text-[6px] text-text-muted font-mono opacity-20">
-                  Unit: {INTERSTITIAL_AD_UNIT}
-                </div>
-              </div>
-              
               <div className="w-64 py-8 px-6 bg-white/[0.03] rounded-3xl flex flex-col items-center justify-center border border-white/5 relative overflow-hidden shadow-2xl">
                 <div className="absolute top-0 right-0 p-4 opacity-5"><Film size={80} /></div>
                 <div className="w-16 h-16 bg-brand-cyan/10 rounded-2xl flex items-center justify-center mb-4 border border-brand-cyan/20">
                   <Play size={32} className="text-brand-cyan ml-1" />
                 </div>
-                <h4 className="text-lg font-bold text-text-main mb-2">Preparing Your Stream</h4>
+                <h4 className="text-lg font-bold text-text-main mb-2">Wait a moment</h4>
                 <p className="text-xs text-text-muted leading-relaxed">
-                  Support our platform by viewing this short update from our partners. Your content will unlock automatically.
+                  The ad is loading... once finished, you can proceed to the video.
                 </p>
               </div>
 
@@ -1336,13 +1290,8 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
                       : "bg-brand-cyan text-black hover:bg-brand-cyan-light shadow-xl shadow-brand-cyan/20 active:scale-95"
                   )}
                 >
-                  {adTimeLeft > 0 ? `Unlocking in ${adTimeLeft}s...` : "Continue to Video"}
+                  {adTimeLeft > 0 ? `Loading... (${adTimeLeft}s)` : "Continue to Video"}
                 </button>
-              </div>
-
-              <div className="flex items-center gap-2 text-[9px] text-text-muted opacity-40">
-                <Check size={12} className="text-brand-cyan" />
-                <span>Verified Stream Connector Active</span>
               </div>
             </div>
           ) : (
@@ -1445,22 +1394,32 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
                 </div>
               </motion.div>
             ) : (
-              <>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8 pb-10"
+              >
                 {/* Title and Interactions */}
                 <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                    <div className="space-y-1">
-                      <h1 className="text-2xl font-bold tracking-tight text-text-main">{item.title}</h1>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black text-text-muted uppercase tracking-widest">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-text-main break-words leading-tight">
+                        {item.title}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black text-text-muted uppercase tracking-widest min-h-[32px]">
                         <div className="flex items-center gap-1.5 py-1 px-2.5 bg-white/5 rounded-full border border-white/10 bg-gradient-to-r from-brand-cyan/10 to-transparent">
                           <Play size={10} className="fill-current text-brand-cyan" />
-                          <span className="text-text-main">{((stats?.views || 0) + (details?.vote_count || 0)).toLocaleString()} Reach</span>
+                          <span className="text-text-main">
+                            {stats ? ((stats.views || 0) + (details?.vote_count || 0)).toLocaleString() : '---'} Reach
+                          </span>
                           <span className="opacity-30">•</span>
-                          <span className="text-[9px] opacity-70">{stats?.views?.toLocaleString() || '0'} Views</span>
+                          <span className="text-[9px] opacity-70">
+                            {stats?.views ? stats.views.toLocaleString() : '0'} Views
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5 py-1 px-2.5 bg-white/5 rounded-full border border-white/10 shadow-lg shadow-black/20">
                           <span className="text-brand-cyan">Score</span>
-                          <span className="text-text-main text-xs font-black">
+                          <span className="text-text-main text-xs font-black min-w-[2ch] inline-block text-center">
                             {(stats?.averageRating 
                               ? ((details?.vote_average || item.vote_average) * 0.7 + stats.averageRating * 0.3) 
                               : (details?.vote_average || item.vote_average)).toFixed(1)}
@@ -1470,12 +1429,10 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
                             <span className="text-[8px] text-yellow-500 font-black">IMDb</span>
                             <span>{(details?.vote_average || item.vote_average).toFixed(1)}</span>
                           </div>
-                          {stats?.averageRating > 0 && (
-                            <div className="flex items-center gap-1 opacity-60 ml-1">
-                              <span className="text-[8px] text-brand-cyan font-black">App</span>
-                              <span>{stats.averageRating.toFixed(1)}</span>
-                            </div>
-                          )}
+                          <div className={cn("flex items-center gap-1 opacity-60 ml-1 transition-opacity", !stats?.averageRating && "opacity-0")}>
+                            <span className="text-[8px] text-brand-cyan font-black">App</span>
+                            <span>{stats?.averageRating ? stats.averageRating.toFixed(1) : '0.0'}</span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1.5 py-1 px-2.5 bg-white/5 rounded-full border border-white/10">
                           <ThumbsUp size={10} className={cn(userInteraction?.reaction === 'like' && "text-brand-cyan fill-current")} />
@@ -1532,11 +1489,6 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
                         </button>
                       </div>
                     </div>
-                  </div>
-
-                  {/* AdMob Native Ad Placeholder */}
-                  <div className="py-2">
-                    <NativeAd />
                   </div>
                 </div>
 
@@ -1721,7 +1673,7 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
                     </div>
                   </div>
                 )}
-              </>
+              </motion.div>
             )}
             
             <div className="h-20" />
