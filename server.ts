@@ -48,7 +48,10 @@ async function startServer() {
       };
 
       if (isTmdb) {
-        const token = process.env.TMDB_TOKEN || "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIzNmY0N2U0NzAyZjBmZmJiMGM5Nzg4ZDA2OTk1ZWNkZSIsIm5iZiI6MTc3NjE0NDc3My4yNjgsInN1YiI6IjY5ZGRkMTg1ZTUzMmY2OTFkZWQ5NDEwOSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.dy8WanI7kFpTfCorNjBgEiHfx3nJVvBrpz9EZ6veHqo";
+        const token = process.env.TMDB_TOKEN;
+        if (!token) {
+          return res.status(401).json({ error: "TMDB_TOKEN is not configured on the server." });
+        }
         headers["Authorization"] = `Bearer ${token}`;
       }
 
