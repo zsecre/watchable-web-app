@@ -679,21 +679,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
 const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: MediaItem; season?: number; episode?: number }; onClose: () => void; userName: string | null }) => {
     const { url, item } = info;
     const [showControls, setShowControls] = useState(true);
-    const [showInterstitial, setShowInterstitial] = useState(true);
-    const [adTimeLeft, setAdTimeLeft] = useState(8);
-
-    // Native Bridge Setup
-    useEffect(() => {
-      // Expose function for Java to call when Ad is closed
-      (window as any).onAdClosed = () => {
-        setShowInterstitial(false);
-      };
-      
-      // Tell Java App to show the Interstitial Ad
-      if ((window as any).AndroidBridge?.showInterstitial) {
-        (window as any).AndroidBridge.showInterstitial();
-      }
-    }, []);
 
     const [details, setDetails] = useState<any>(null);
     const [loading, setLoading] = useState(false);
@@ -721,16 +706,6 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
     
     // Identity handling
     const [currentUser, setCurrentUser] = useState(auth.currentUser);
-
-    // Ad Countdown Logic (Fallback for web testing)
-    useEffect(() => {
-      if (showInterstitial && adTimeLeft > 0) {
-        const timer = setInterval(() => {
-          setAdTimeLeft(prev => prev - 1);
-        }, 1000);
-        return () => clearInterval(timer);
-      }
-    }, [showInterstitial, adTimeLeft]);
 
     useEffect(() => {
       const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -1228,8 +1203,8 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
     const playEpisode = (epNum: number) => {
       let newUrl = imdbId 
-        ? `https://vidsrc-embed.ru/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${epNum}`
-        : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${epNum}`;
+        ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${epNum}`
+        : `https://vidsrc.xyz/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${epNum}`;
       
       setPlayingInfo({ url: newUrl, item: item, season: selectedSeason, episode: epNum });
     };
@@ -1266,46 +1241,16 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
         </AnimatePresence>
 
         <div className="w-full bg-black aspect-video relative group shrink-0">
-          {showInterstitial ? (
-            <div className="absolute inset-0 z-50 bg-bg-deep flex flex-col items-center justify-center p-6 text-center space-y-6">
-              <div className="w-64 py-8 px-6 bg-white/[0.03] rounded-3xl flex flex-col items-center justify-center border border-white/5 relative overflow-hidden shadow-2xl">
-                <div className="absolute top-0 right-0 p-4 opacity-5"><Film size={80} /></div>
-                <div className="w-16 h-16 bg-brand-cyan/10 rounded-2xl flex items-center justify-center mb-4 border border-brand-cyan/20">
-                  <Play size={32} className="text-brand-cyan ml-1" />
-                </div>
-                <h4 className="text-lg font-bold text-text-main mb-2">Wait a moment</h4>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  The ad is loading... once finished, you can proceed to the video.
-                </p>
-              </div>
-
-              <div className="space-y-4 w-full max-w-xs">
-                <button 
-                  disabled={adTimeLeft > 0}
-                  onClick={() => setShowInterstitial(false)}
-                  className={cn(
-                    "w-full py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all",
-                    adTimeLeft > 0 
-                      ? "bg-white/5 text-text-muted border border-white/10 cursor-not-allowed" 
-                      : "bg-brand-cyan text-black hover:bg-brand-cyan-light shadow-xl shadow-brand-cyan/20 active:scale-95"
-                  )}
-                >
-                  {adTimeLeft > 0 ? `Loading... (${adTimeLeft}s)` : "Continue to Video"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <iframe 
-              src={url}
-              className="w-full h-full"
-              title="Video Player" 
-              frameBorder="0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen
-              sandbox="allow-forms allow-scripts allow-pointer-lock allow-same-origin allow-top-navigation-by-user-activation"
-            />
-          )}
-          {!showControls && !showInterstitial && (
+          <iframe 
+            src={url}
+            className="w-full h-full"
+            title="Video Player" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowFullScreen
+            referrerPolicy="no-referrer"
+          />
+          {!showControls && (
             <div 
               className="absolute inset-0 z-10 cursor-pointer" 
               onClick={resetTimer}
@@ -3390,8 +3335,8 @@ function DetailsOverlay({
                             if (imdbId || item.id) {
                               const targetId = imdbId || item.id;
                               let url = imdbId 
-                                ? `https://vidsrc-embed.ru/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${ep.episode_number}`
-                                : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${ep.episode_number}`;
+                                ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${ep.episode_number}`
+                                : `https://vidsrc.xyz/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${ep.episode_number}`;
                               
                               setPlayingInfo({ url, item, season: selectedSeason, episode: ep.episode_number });
                             }
@@ -3499,8 +3444,8 @@ function DetailsOverlay({
                     if (imdbId || item.id) {
                       const targetId = imdbId || item.id;
                       let url = item.type === "Movie" 
-                        ? (imdbId ? `https://vidsrc-embed.ru/embed/movie/${imdbId}` : `https://vidsrc-embed.ru/embed/movie?tmdb=${item.id}`)
-                        : (imdbId ? `https://vidsrc-embed.ru/embed/tv?imdb=${imdbId}&season=1&episode=1` : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=1&episode=1`);
+                        ? (imdbId ? `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` : `https://vidsrc.xyz/embed/movie?tmdb=${item.id}`)
+                        : (imdbId ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=1&episode=1` : `https://vidsrc.xyz/embed/tv?tmdb=${item.id}&season=1&episode=1`);
                       
                       setPlayingInfo({ url, item, season: 1, episode: 1 });
                     }
