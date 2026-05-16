@@ -682,6 +682,20 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
     const [details, setDetails] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+
+    // Prevent ad-hijacking/redirects
+    useEffect(() => {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        // This triggers a browser confirmation dialog if an ad tries to redirect you
+        e.preventDefault();
+        e.returnValue = ''; 
+        return '';
+      };
+      
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, []);
+
     const [seasons, setSeasons] = useState<any[]>([]);
     const [episodes, setEpisodes] = useState<any[]>([]);
     const [imdbId, setImdbId] = useState<string | null>(null);
@@ -1203,8 +1217,8 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
 
     const playEpisode = (epNum: number) => {
       let newUrl = imdbId 
-        ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${epNum}`
-        : `https://vidsrc.xyz/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${epNum}`;
+        ? `https://vidsrc-embed.ru/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${epNum}`
+        : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${epNum}`;
       
       setPlayingInfo({ url: newUrl, item: item, season: selectedSeason, episode: epNum });
     };
@@ -1248,7 +1262,7 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
             frameBorder="0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowFullScreen
-            referrerPolicy="no-referrer"
+            sandbox="allow-forms allow-scripts allow-pointer-lock allow-same-origin allow-popups"
           />
           {!showControls && (
             <div 
@@ -3335,8 +3349,8 @@ function DetailsOverlay({
                             if (imdbId || item.id) {
                               const targetId = imdbId || item.id;
                               let url = imdbId 
-                                ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${ep.episode_number}`
-                                : `https://vidsrc.xyz/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${ep.episode_number}`;
+                                ? `https://vidsrc-embed.ru/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${ep.episode_number}`
+                                : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${ep.episode_number}`;
                               
                               setPlayingInfo({ url, item, season: selectedSeason, episode: ep.episode_number });
                             }
@@ -3444,8 +3458,8 @@ function DetailsOverlay({
                     if (imdbId || item.id) {
                       const targetId = imdbId || item.id;
                       let url = item.type === "Movie" 
-                        ? (imdbId ? `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` : `https://vidsrc.xyz/embed/movie?tmdb=${item.id}`)
-                        : (imdbId ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=1&episode=1` : `https://vidsrc.xyz/embed/tv?tmdb=${item.id}&season=1&episode=1`);
+                        ? (imdbId ? `https://vidsrc-embed.ru/embed/movie/${imdbId}` : `https://vidsrc-embed.ru/embed/movie?tmdb=${item.id}`)
+                        : (imdbId ? `https://vidsrc-embed.ru/embed/tv?imdb=${imdbId}&season=1&episode=1` : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=1&episode=1`);
                       
                       setPlayingInfo({ url, item, season: 1, episode: 1 });
                     }
