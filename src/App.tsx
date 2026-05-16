@@ -1269,16 +1269,30 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Try Sketchware/Android Bridge first
+                  // 1. Try Sketchware/Android Native Bridge (requires Java interface)
                   if ((window as any).AndroidBridge?.toggleFullscreen) {
                     (window as any).AndroidBridge.toggleFullscreen();
-                  } else if (document.documentElement.requestFullscreen) {
-                    // Fallback to Web Fullscreen API
-                    if (!document.fullscreenElement) {
-                      document.documentElement.requestFullscreen();
-                    } else {
-                      if (document.exitFullscreen) {
-                        document.exitFullscreen();
+                  }
+                  
+                  // 2. Web Fullscreen & Orientation API
+                  if (!document.fullscreenElement) {
+                    const el = document.documentElement;
+                    if (el.requestFullscreen) {
+                      el.requestFullscreen().then(() => {
+                        // Request landscape orientation when entering fullscreen
+                        if (window.screen && (window.screen as any).orientation?.lock) {
+                          (window.screen as any).orientation.lock('landscape').catch(() => {
+                            console.log('Landscape lock failed - might require user interaction or app permission');
+                          });
+                        }
+                      }).catch(err => console.error(err));
+                    }
+                  } else {
+                    if (document.exitFullscreen) {
+                      document.exitFullscreen();
+                      // Unlock orientation when exiting
+                      if (window.screen && (window.screen as any).orientation?.unlock) {
+                        window.screen.orientation.unlock();
                       }
                     }
                   }
