@@ -683,6 +683,14 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
     const [details, setDetails] = useState<any>(null);
     const [loading, setLoading] = useState(false);
 
+    // Native Bridge Setup for Sketchware/Android
+    useEffect(() => {
+      // Tell Java App to show the Interstitial Ad
+      if ((window as any).AndroidBridge?.showInterstitial) {
+        (window as any).AndroidBridge.showInterstitial();
+      }
+    }, []);
+
     // Prevent ad-hijacking/redirects
     useEffect(() => {
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -1260,8 +1268,12 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
             className="w-full h-full"
             title="Video Player" 
             frameBorder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" 
             allowFullScreen
+            // @ts-ignore
+            webkitallowfullscreen="true"
+            // @ts-ignore
+            mozallowfullscreen="true"
           />
           {!showControls && (
             <div 
