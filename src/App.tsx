@@ -77,6 +77,157 @@ interface MediaItem {
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const JIKAN_BASE_URL = "https://api.jikan.moe/v4";
+export const HILLTOP_AD_URL = "https://physicaldad.com/dOm.FNzkdpG/NiveZ_GeUn/XeImt9/u/ZrUhl/kKP/THcy0/NhTAQHwdNiDMEAtqN/z/Qh1/NlDPAQ0/NHQS";
+
+interface VideoAdPreRollProps {
+  onAdComplete: () => void;
+  onClose?: () => void;
+  title?: string;
+}
+
+const VideoAdPreRollModal: React.FC<VideoAdPreRollProps> = ({ onAdComplete, onClose, title }) => {
+  const [countdown, setCountdown] = useState(5);
+  const [canSkip, setCanSkip] = useState(false);
+
+  useEffect(() => {
+    // Notify native Android bridge if running in Android app
+    try {
+      if ((window as any).AndroidBridge?.showInterstitial) {
+        (window as any).AndroidBridge.showInterstitial();
+      }
+    } catch (e) {}
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setCanSkip(true);
+          return 0;
+        }
+        if (prev <= 3) {
+          setCanSkip(true);
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (countdown === 0) {
+      const timeout = setTimeout(() => {
+        onAdComplete();
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [countdown, onAdComplete]);
+
+  const handleOpenAd = () => {
+    window.open(HILLTOP_AD_URL, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-6"
+    >
+      <div className="relative w-full max-w-lg bg-bg-deep border border-brand-cyan/20 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-5 py-3.5 bg-bg-surface/80 border-b border-border-subtle">
+          <div className="flex items-center gap-2">
+            <span className="bg-brand-cyan text-black text-[9px] font-black uppercase px-2 py-0.5 rounded tracking-wider">
+              Ad
+            </span>
+            <span className="text-xs font-bold text-text-muted">Sponsored Video Advertisement</span>
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-text-muted hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* Ad Video Preview / Interactive Card */}
+        <div className="relative aspect-video bg-black/80 flex flex-col items-center justify-center p-6 text-center overflow-hidden group">
+          {/* Animated Background Glow */}
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-cyan/10 via-transparent to-purple-600/10" />
+          
+          <div className="relative z-10 space-y-4 max-w-sm">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-brand-cyan/20 border border-brand-cyan/40 flex items-center justify-center text-brand-cyan shadow-lg shadow-brand-cyan/20 animate-pulse">
+              <Play fill="currentColor" size={26} className="ml-1" />
+            </div>
+
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-brand-cyan">Supporting Free Streaming</p>
+              <h3 className="text-lg font-black text-white mt-1 line-clamp-1">
+                {title ? `Playing: ${title}` : "Premium Video Stream"}
+              </h3>
+              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+                Your stream will start in <span className="text-brand-cyan font-bold">{countdown}s</span>. Visit our sponsor to keep Watchable free.
+              </p>
+            </div>
+
+            <button
+              onClick={handleOpenAd}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-cyan hover:bg-brand-cyan/90 text-black text-xs font-black uppercase tracking-wider rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-brand-cyan/30 cursor-pointer"
+            >
+              <span>Visit Sponsor Link</span>
+              <ExternalLink size={14} />
+            </button>
+          </div>
+
+          {/* Progress bar */}
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/10">
+            <motion.div
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 5, ease: "linear" }}
+              className="h-full bg-brand-cyan"
+            />
+          </div>
+        </div>
+
+        {/* Footer controls */}
+        <div className="px-5 py-4 bg-bg-surface flex items-center justify-between gap-4">
+          <span className="text-[11px] text-text-muted font-medium">
+            {countdown > 0 ? `Video starts in ${countdown}s` : "Starting player..."}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onAdComplete}
+              disabled={!canSkip && countdown > 3}
+              className={cn(
+                "px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+                canSkip || countdown <= 3
+                  ? "bg-white/10 hover:bg-brand-cyan hover:text-black text-white border border-white/20 shadow-md cursor-pointer"
+                  : "bg-white/5 text-text-muted/50 cursor-not-allowed border border-white/5"
+              )}
+            >
+              {countdown > 0 ? (
+                <>
+                  <span>Skip Ad</span>
+                  <span className="text-[10px] opacity-70">({countdown}s)</span>
+                </>
+              ) : (
+                <>
+                  <span>Play Video</span>
+                  <ChevronRight size={14} />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 // Robust fetch helper
 const apiFetch = async (url: string, options?: RequestInit) => {
@@ -259,6 +410,8 @@ const WelcomeOverlay = ({
 export default function App() {
   const [activeTab, setActiveTab] = useState<'All' | 'Movies' | 'Tv' | 'Library' | 'Me'>('All');
   const [playingInfo, setPlayingInfo] = useState<{ url: string; item: MediaItem; season?: number; episode?: number } | null>(null);
+  const [adPendingPlayInfo, setAdPendingPlayInfo] = useState<{ url: string; item: MediaItem; season?: number; episode?: number } | null>(null);
+  const [showPreRollAd, setShowPreRollAd] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<MediaItem[]>([]);
@@ -1230,12 +1383,27 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
       }
     };
 
+    const [showEpisodeAd, setShowEpisodeAd] = useState(false);
+    const [pendingEpisodeNum, setPendingEpisodeNum] = useState<number | null>(null);
+
     const playEpisode = (epNum: number) => {
-      let newUrl = imdbId 
-        ? `https://vidsrc-embed.ru/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${epNum}`
-        : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${epNum}`;
-      
-      setPlayingInfo({ url: newUrl, item: item, season: selectedSeason, episode: epNum });
+      setPendingEpisodeNum(epNum);
+      setShowEpisodeAd(true);
+      try {
+        window.open(HILLTOP_AD_URL, '_blank', 'noopener,noreferrer');
+      } catch (e) {}
+    };
+
+    const handleEpisodeAdComplete = () => {
+      if (pendingEpisodeNum !== null) {
+        let newUrl = imdbId 
+          ? `https://vidsrc-embed.ru/embed/tv?imdb=${imdbId}&season=${selectedSeason}&episode=${pendingEpisodeNum}`
+          : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=${selectedSeason}&episode=${pendingEpisodeNum}`;
+        
+        setPlayingInfo({ url: newUrl, item: item, season: selectedSeason, episode: pendingEpisodeNum });
+        setPendingEpisodeNum(null);
+      }
+      setShowEpisodeAd(false);
     };
 
     return (
@@ -1248,6 +1416,15 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
         onTouchStart={resetTimer}
         onClick={resetTimer}
       >
+        <AnimatePresence>
+          {showEpisodeAd && (
+            <VideoAdPreRollModal 
+              title={item?.title ? `${item.title} - S${selectedSeason} E${pendingEpisodeNum}` : `Season ${selectedSeason} Episode ${pendingEpisodeNum}`}
+              onAdComplete={handleEpisodeAdComplete}
+              onClose={() => setShowEpisodeAd(false)}
+            />
+          )}
+        </AnimatePresence>
         <AnimatePresence>
           {showControls && (
             <motion.div 
@@ -1762,6 +1939,27 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
       localStorage.setItem('watchable_history', JSON.stringify(next));
       return next;
     });
+  };
+
+  const handlePlayWithAd = (info: { url: string; item: MediaItem; season?: number; episode?: number } | null) => {
+    if (!info) {
+      setPlayingInfo(null);
+      return;
+    }
+    setAdPendingPlayInfo(info);
+    setShowPreRollAd(true);
+    try {
+      window.open(HILLTOP_AD_URL, '_blank', 'noopener,noreferrer');
+    } catch (e) {}
+  };
+
+  const handlePreRollAdComplete = () => {
+    if (adPendingPlayInfo) {
+      addToHistory(adPendingPlayInfo.item);
+      setPlayingInfo(adPendingPlayInfo);
+      setAdPendingPlayInfo(null);
+    }
+    setShowPreRollAd(false);
   };
 
   const fetchTopRatedAnime = async () => {
@@ -2406,15 +2604,26 @@ const PlayerScreen = ({ info, onClose, userName }: { info: { url: string; item: 
         )}
       </AnimatePresence>
 
+      {/* Pre-roll Video Ad Overlay */}
+      <AnimatePresence>
+        {showPreRollAd && adPendingPlayInfo && (
+          <VideoAdPreRollModal
+            title={adPendingPlayInfo.item.title}
+            onAdComplete={handlePreRollAdComplete}
+            onClose={() => {
+              setShowPreRollAd(false);
+              setAdPendingPlayInfo(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Details Overlay */}
       <DetailsOverlay 
         item={selectedItem} 
         onClose={() => setSelectedItem(null)} 
         setSelectedItem={setSelectedItem}
-        setPlayingInfo={(info) => {
-          if (info) addToHistory(info.item);
-          setPlayingInfo(info);
-        }}
+        setPlayingInfo={handlePlayWithAd}
         watchlist={watchlist}
         onToggleCollection={toggleCollection}
         userName={userName}
